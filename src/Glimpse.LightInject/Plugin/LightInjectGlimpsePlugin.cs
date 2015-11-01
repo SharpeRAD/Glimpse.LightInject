@@ -13,10 +13,7 @@ namespace Glimpse.LightInject
     public class LightInjectGlimpsePlugin : TabBase
     {
         #region Properties (2)
-            internal static IServiceContainer Container
-            {
-                private get; set;
-            }
+            internal static IServiceContainer Container { get; set; }
 
             public override string Name
             {
