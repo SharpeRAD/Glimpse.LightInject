@@ -17,6 +17,8 @@ Glimpse extension for LightInject
 
 ## Referencing
 
+[![NuGet Version](http://img.shields.io/nuget/v/Glimpse.LightInject.svg?style=flat)](https://www.nuget.org/packages/Glimpse.LightInject/) [![NuGet Downloads](http://img.shields.io/nuget/dt/Glimpse.LightInject.svg?style=flat)](https://www.nuget.org/packages/Glimpse.LightInject/)
+
 Glimpse.LightInject is available as a nuget package from the package manager console:
 
 ```csharp
