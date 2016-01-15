@@ -10,11 +10,17 @@
 
 namespace Glimpse.LightInject
 {
+    /// <summary>
+    /// LightInject plugin for Glimpse
+    /// </summary>
     public class LightInjectGlimpsePlugin : TabBase
     {
         #region Properties (2)
             internal static IServiceContainer Container { get; set; }
 
+            /// <summary>
+            /// The name of the plugin
+            /// </summary>
             public override string Name
             {
                 get
@@ -29,6 +35,10 @@ namespace Glimpse.LightInject
 
 
         #region Functions (1)
+            /// <summary>
+            /// Gets data to fill the glimpse tab with
+            /// </summary>
+            /// <param name="context">The glimpse context.</param>
             public override object GetData(ITabContext context)
             {
                 if (Container == null)

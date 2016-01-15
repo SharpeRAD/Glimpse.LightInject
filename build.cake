@@ -4,6 +4,8 @@
 // ARGUMENTS
 //////////////////////////////////////////////////////////////////////
 
+var tools = Argument("tools", "./tools");
+
 var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 
@@ -14,7 +16,7 @@ var appName = "Glimpse.LightInject";
 
 
 //////////////////////////////////////////////////////////////////////
-// PREPARATION
+// VARIABLES
 //////////////////////////////////////////////////////////////////////
 
 // Get whether or not this is a local build.
@@ -32,13 +34,16 @@ var semVersion = local ? version : (version + string.Concat("-build-", buildNumb
 
 // Define directories.
 var buildDir = "./src/Glimpse.LightInject/bin/" + configuration;
+
 var buildResultDir = "./build/v" + semVersion;
-var testResultDir = buildResultDir + "/tests";
 var nugetRoot = buildResultDir + "/nuget";
 var binDir = buildResultDir + "/bin";
 
 //Get Solutions
 var solutions       = GetFiles("./**/*.sln");
+
+// Package
+var zipPackage = buildResultDir + "/Glimpse-LightInject-v" + semVersion + ".zip";
 
 
 
@@ -56,11 +61,9 @@ Setup(() =>
 	NuGetInstall("xunit.runner.console", new NuGetInstallSettings 
 	{
 		ExcludeVersion  = true,
-		OutputDirectory = "./tools"
+		OutputDirectory = tools
     });
 });
-
-
 
 Teardown(() =>
 {
@@ -73,7 +76,7 @@ Teardown(() =>
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// TASK DEFINITIONS
+// PREPARE
 ///////////////////////////////////////////////////////////////////////////////
 
 Task("Clean")
@@ -83,11 +86,10 @@ Task("Clean")
 	Information("Cleaning old files");
 	CleanDirectories(new DirectoryPath[] 
 	{
-        buildResultDir, binDir, testResultDir, nugetRoot
+        buildDir, buildResultDir,
+        binDir, nugetRoot
 	});
 });
-
-
 
 Task("Restore-Nuget-Packages")
 	.IsDependentOn("Clean")
@@ -101,22 +103,29 @@ Task("Restore-Nuget-Packages")
     }
 });
 
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// BUILD
+///////////////////////////////////////////////////////////////////////////////
+
 Task("Patch-Assembly-Info")
     .IsDependentOn("Restore-Nuget-Packages")
     .Does(() =>
 {
     var file = "./src/SolutionInfo.cs";
 
-    CreateAssemblyInfo(file, new AssemblyInfoSettings {
+    CreateAssemblyInfo(file, new AssemblyInfoSettings 
+    {
 		Product = appName,
         Version = version,
         FileVersion = version,
         InformationalVersion = semVersion,
-        Copyright = "Copyright (c) Phillip Sharpe 2015"
+        Copyright = "Copyright (c) 2015 - " + DateTime.Now.Year.ToString() + " Phillip Sharpe"
     });
 });
-
-
 
 Task("Build")
     .IsDependentOn("Patch-Assembly-Info")
@@ -134,17 +143,13 @@ Task("Build")
     }
 });
 
-Task("Run-Unit-Tests")
-    .IsDependentOn("Build")
-    .Does(() =>
-{
-    XUnit2("./src/**/bin/" + configuration + "/*.Tests.dll", new XUnit2Settings {
-        OutputDirectory = testResultDir,
-        XmlReportV1 = true
-    });
-});
 
 
+
+
+///////////////////////////////////////////////////////////////////////////////
+// PACKAGE
+///////////////////////////////////////////////////////////////////////////////
 
 Task("Copy-Files")
     .IsDependentOn("Build")
@@ -152,6 +157,7 @@ Task("Copy-Files")
 {
     CopyFileToDirectory(buildDir + "/Glimpse.LightInject.dll", binDir);
     CopyFileToDirectory(buildDir + "/Glimpse.LightInject.pdb", binDir);
+    CopyFileToDirectory(buildDir + "/Glimpse.LightInject.xml", binDir);
 
     CopyFiles(new FilePath[] { "LICENSE", "README.md", "ReleaseNotes.md" }, binDir);
 });
@@ -160,8 +166,7 @@ Task("Zip-Files")
     .IsDependentOn("Copy-Files")
     .Does(() =>
 {
-    var filename = buildResultDir + "/Glimpse-LightInject-v" + semVersion + ".zip";
-    Zip(binDir, filename);
+    Zip(binDir, zipPackage);
 });
 
 
@@ -170,7 +175,8 @@ Task("Create-NuGet-Packages")
     .IsDependentOn("Zip-Files")
     .Does(() =>
 {
-    NuGetPack("./nuspec/Glimpse.LightInject.nuspec", new NuGetPackSettings {
+    NuGetPack("./nuspec/Glimpse.LightInject.nuspec", new NuGetPackSettings 
+    {
         Version = version,
         ReleaseNotes = releaseNotes.Notes.ToArray(),
         BasePath = binDir,
@@ -179,26 +185,6 @@ Task("Create-NuGet-Packages")
         NoPackageAnalysis = true
     });
 });
-
-
-
-Task("Update-AppVeyor-Build-Number")
-    .WithCriteria(() => isRunningOnAppVeyor)
-    .Does(() =>
-{
-    AppVeyor.UpdateBuildVersion(semVersion);
-}); 
-
-Task("Upload-AppVeyor-Artifacts")
-    .IsDependentOn("Package")
-    .WithCriteria(() => isRunningOnAppVeyor)
-    .Does(() =>
-{
-    var artifact = new FilePath(buildResultDir + "/Glimpse-LightInject-v" + semVersion + ".zip");
-    AppVeyor.UploadArtifact(artifact);
-}); 
-
-
 
 Task("Publish-Nuget")
 	.IsDependentOn("Create-NuGet-Packages")
@@ -214,10 +200,11 @@ Task("Publish-Nuget")
         throw new InvalidOperationException("Could not resolve MyGet API key.");
     }
 
-    // Get the path to the package.
-    var package = nugetRoot + "/Glimpse.LightInject." + version + ".nupkg";
+
 
     // Push the package.
+    var package = nugetRoot + "/Glimpse.LightInject." + version + ".nupkg";
+
     NuGetPush(package, new NuGetPushSettings 
 	{
         ApiKey = apiKey
@@ -226,24 +213,52 @@ Task("Publish-Nuget")
 
 
 
-Task("Slack")
-	.IsDependentOn("Create-NuGet-Packages")
+
+
+///////////////////////////////////////////////////////////////////////////////
+// APPVEYOR
+///////////////////////////////////////////////////////////////////////////////
+
+Task("Update-AppVeyor-Build-Number")
+    .WithCriteria(() => isRunningOnAppVeyor)
     .Does(() =>
 {
-	//Get Text
-	var text = "";
+    AppVeyor.UpdateBuildVersion(semVersion);
+}); 
 
-    if (isPullRequest)
-    {
-        text = "PR submitted for " + appName;
+Task("Upload-AppVeyor-Artifacts")
+    .IsDependentOn("Zip-Files")
+    .WithCriteria(() => isRunningOnAppVeyor)
+    .Does(() =>
+{
+    AppVeyor.UploadArtifact(zipPackage);
+}); 
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+// MESSAGE
+///////////////////////////////////////////////////////////////////////////////
+
+Task("Slack")
+    .Does(() =>
+{
+    // Resolve the API key.
+    var token = EnvironmentVariable("SLACK_TOKEN");
+
+    if(string.IsNullOrEmpty(token)) 
+	{
+        throw new InvalidOperationException("Could not resolve Slack token.");
     }
-    else
-    {
-        text = "Published " + appName + " v" + version;
-    }
+
+
 
 	// Post Message
-	var result = Slack.Chat.PostMessage(EnvironmentVariable("SLACK_TOKEN"), "#code", text);
+	var text = "Published " + appName + " v" + version;
+	
+	var result = Slack.Chat.PostMessage(token, "#code", text);
 
 	if (result.Ok)
 	{
@@ -269,14 +284,19 @@ Task("Package")
 	.IsDependentOn("Zip-Files")
     .IsDependentOn("Create-NuGet-Packages");
 
-Task("Default")
-    .IsDependentOn("Package");
+Task("Publish")
+    .IsDependentOn("Publish-Nuget");
 
 Task("AppVeyor")
+	.IsDependentOn("Publish")
     .IsDependentOn("Update-AppVeyor-Build-Number")
     .IsDependentOn("Upload-AppVeyor-Artifacts")
-    .IsDependentOn("Publish-Nuget")
     .IsDependentOn("Slack");
+    
+
+
+Task("Default")
+    .IsDependentOn("Package");
 
 
 

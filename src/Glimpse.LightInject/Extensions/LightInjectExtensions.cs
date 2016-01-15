@@ -8,6 +8,9 @@
 
 namespace Glimpse.LightInject
 {
+    /// <summary>
+    /// Contains extension methods for <see cref="IServiceContainer" />.
+    /// </summary>
     public static class LightInjectExtensions
     {
         /// <summary>
