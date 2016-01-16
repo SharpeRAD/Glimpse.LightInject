@@ -59,4 +59,4 @@ Glimpse.LightInject is provided as-is under the MIT license. For more informatio
 
 ## Share the love
 
-If this project helps you in anyway then please :star: the repository as its good to know your hardwork is appreciated.
+If this project helps you in anyway then please :star: the repository.
