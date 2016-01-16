@@ -51,7 +51,7 @@ container.EnableGlimpse();
 
 ## License
 
-Copyright © 2015 - 2016 Phillip Sharpe
+Copyright (c) 2015 - 2016 Phillip Sharpe
 
 Glimpse.LightInject is provided as-is under the MIT license. For more information see [LICENSE](https://github.com/SharpeRAD/Glimpse.LightInject/blob/master/LICENSE).
 
